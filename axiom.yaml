@@ -1,0 +1,89 @@
+name: christiangeorgelucas/money-tools
+version: 0.1.0
+language: java
+description: >-
+  Composable Axiom exact monetary-arithmetic nodes — add/subtract/multiply/
+  divide, remainder-safe allocation across ratios, currency-scale rounding
+  with a chosen rounding mode, comparison, sign classification, negate/abs,
+  percentage application, caller-supplied-rate conversion, and ISO 4217
+  currency metadata — over a single MoneyAmount envelope whose amount is
+  always an exact decimal STRING (java.math.BigDecimal), never a
+  float/double, wrapping the Apache-2.0-licensed org.javamoney/Moneta
+  (JSR-354 reference implementation) for ISO 4217 currency validation and
+  metadata. Every node is stateless, deterministic, and offline: no live
+  exchange-rate fetch, ever — Convert always takes the rate as an explicit
+  caller-supplied input. This package is exact arithmetic only, not locale
+  display formatting; pair with christiangeorgelucas/locale-tools for
+  CLDR-formatted currency strings.
+license: MIT
+author: Christian George Lucas
+tags:
+    - money
+    - currency
+    - monetary-arithmetic
+    - allocation
+    - rounding
+    - decimal
+    - jsr-354
+    - moneta
+    - finance
+nodes:
+    - name: Add
+      input: AddInput
+      output: MoneyAmount
+      description: Add two same-currency amounts exactly via BigDecimal, e.g. 10.00 USD + 5.50 USD -> 15.50 USD. Mismatched currencies return a CURRENCY_MISMATCH error rather than crashing or silently coercing.
+    - name: Subtract
+      input: SubtractInput
+      output: MoneyAmount
+      description: Subtract two same-currency amounts exactly via BigDecimal (a - b), e.g. 10.00 USD - 3.25 USD -> 6.75 USD. Mismatched currencies return a CURRENCY_MISMATCH error rather than crashing or silently coercing.
+    - name: Multiply
+      input: MultiplyInput
+      output: MoneyAmount
+      description: Multiply an amount by an exact decimal scalar factor, e.g. 10.00 USD * 3 -> 30.00 USD. The result keeps full exact precision (scale grows to amount.scale + factor.scale) — pair with Round to land on a currency's conventional scale.
+    - name: Divide
+      input: DivideInput
+      output: MoneyAmount
+      description: Divide an amount by an exact decimal scalar divisor, rounded to a target scale (default the currency's own default fraction digits) and rounding mode (default HALF_UP), e.g. 10.00 USD / 3 -> 3.33 USD. Division can be non-terminating (e.g. 10/3), so a target scale and rounding mode are always applied. A zero divisor returns a DIVISION_BY_ZERO error.
+    - name: Sum
+      input: SumInput
+      output: MoneyAmount
+      description: Total a list of same-currency amounts exactly. An empty list, or a list mixing currencies, returns a structured error rather than an arbitrary zero or first-currency guess.
+    - name: Allocate
+      input: AllocateInput
+      output: AllocateResult
+      description: Split a non-negative amount into parts proportional to integer ratios, with the exact remainder distributed one minor unit at a time (largest fractional remainder first, ties broken by ascending index) so the parts always sum to the original amount exactly — no rounding loss. E.g. allocate 0.05 USD by [1,1,1] -> [0.02, 0.02, 0.01] USD.
+    - name: Round
+      input: RoundInput
+      output: MoneyAmount
+      description: Round an amount to a target scale (default the amount's currency's own default fraction digits, e.g. 2 for USD, 0 for JPY) using a chosen rounding mode (HALF_UP, HALF_DOWN, HALF_EVEN, UP, DOWN, CEILING, FLOOR; default HALF_UP), e.g. 2.005 USD rounded HALF_EVEN to scale 2 -> 2.00 USD.
+    - name: Compare
+      input: CompareInput
+      output: CompareResult
+      description: Order two same-currency amounts by numeric value (2.0 and 2.00 compare equal, regardless of how many decimal digits either was written with) — returns comparison (-1/0/+1) plus equal/greater/less booleans. Mismatched currencies return a CURRENCY_MISMATCH error.
+    - name: Sign
+      input: SignInput
+      output: SignResult
+      description: Classify one amount's sign — is_zero, is_positive, is_negative, plus a signum of -1/0/+1.
+    - name: Convert
+      input: ConvertInput
+      output: MoneyAmount
+      description: Convert an amount into another currency using a CALLER-SUPPLIED exchange rate (never fetched live over the network) — result = amount * rate, rounded to a target scale (default the target currency's own default fraction digits) and rounding mode (default HALF_UP). E.g. 10.00 USD at rate 0.92 -> 9.20 EUR.
+    - name: Negate
+      input: NegateInput
+      output: MoneyAmount
+      description: Flip the sign of an amount, e.g. 4.50 USD -> -4.50 USD.
+    - name: Abs
+      input: AbsInput
+      output: MoneyAmount
+      description: The absolute value of an amount, e.g. -4.50 USD -> 4.50 USD.
+    - name: ApplyPercentage
+      input: ApplyPercentageInput
+      output: MoneyAmount
+      description: Apply a percentage to an amount, e.g. percent "10" on 200.00 USD -> 20.00 USD. Exact — dividing by 100 is always an exact terminating decimal shift, never a rounded division.
+    - name: GetCurrencyMetadata
+      input: GetCurrencyMetadataInput
+      output: CurrencyMetadata
+      description: Look up structural (non-locale-specific) ISO 4217 metadata for a currency code — default fraction digits (the conventional minor-unit scale), numeric code, and a fixed-reference-locale symbol, e.g. "JPY" -> default_fraction_digits 0, numeric_code 392, symbol "¥". For a truly locale-aware display name/symbol, use christiangeorgelucas/locale-tools' GetCurrencyInfo instead.
+build:
+    maven_deps:
+        - org.javamoney.moneta:moneta-core:1.4.5

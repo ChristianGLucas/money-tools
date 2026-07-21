@@ -1,0 +1,238 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.money_tools;
+
+option java_package = "gen";
+option java_outer_classname = "Messages";
+
+// A structured, deterministic failure. Every result message in this package
+// carries one; it is unset (empty code) on success. Nodes never throw or
+// crash on bad input — they return this instead.
+message MoneyError {
+  // Stable machine-readable code: INVALID_ARGUMENT (a field is missing,
+  // malformed, or out of range), UNKNOWN_CURRENCY (not a recognized ISO 4217
+  // code), CURRENCY_MISMATCH (two amounts in an operation that requires the
+  // same currency do not match), DIVISION_BY_ZERO, INVALID_ROUNDING_MODE.
+  string code = 1;
+  // Human-readable detail for logs/debugging.
+  string message = 2;
+}
+
+// The canonical monetary-amount envelope every node in this package consumes
+// and/or emits: an EXACT decimal amount tagged with its ISO 4217 currency
+// code. Amounts are always plain decimal strings, never a float/double —
+// binary floating point cannot represent most decimal fractions exactly, so
+// every node in this package parses, computes, and renders amounts via
+// java.math.BigDecimal exact decimal arithmetic, never a native
+// float/double; currency codes are validated against the JSR-354/Moneta
+// ISO 4217 catalog. This message deliberately does NOT do locale/CLDR
+// display formatting (no thousands separators, no localized symbol
+// placement) — pair with christiangeorgelucas/locale-tools' FormatCurrency
+// node for that; this package is exact arithmetic only.
+message MoneyAmount {
+  // Exact decimal amount as a plain string matching -?\d+(\.\d+)? — e.g.
+  // "19.99", "-4.50", "0". No scientific notation, no leading '+', no
+  // grouping/thousands separators (this is exact arithmetic input, not a
+  // locale-formatted display string).
+  string amount = 1;
+  // ISO 4217 currency code, e.g. "USD", "EUR", "JPY". Case-insensitive on
+  // input, normalized to uppercase on output.
+  string currency = 2;
+  // Structured error; empty (code == "") on success. When set, `amount` and
+  // `currency` are meaningless (typically empty).
+  MoneyError error = 3;
+}
+
+// Structural (non-locale-specific) metadata for one ISO 4217 currency code —
+// the invariant facts arithmetic needs (default scale, numeric code) plus
+// its plain ISO/JDK symbol. For a LOCALIZED display name/symbol under a
+// specific CLDR locale, use christiangeorgelucas/locale-tools' GetCurrencyInfo
+// instead — that node's `symbol`/`name` vary by locale; this node's do not.
+message CurrencyMetadata {
+  // Normalized ISO 4217 code, e.g. "USD".
+  string currency = 1;
+  // The number of minor-unit decimal places conventionally used by this
+  // currency, e.g. 2 for USD, 0 for JPY, 3 for BHD. This is the scale Round
+  // and Divide use by default when no explicit scale is given.
+  int32 default_fraction_digits = 2;
+  // ISO 4217 numeric code, e.g. 840 for USD, 0 if the currency has none
+  // (some non-ISO / historical codes).
+  int32 numeric_code = 3;
+  // The JDK's currency symbol resolved under a FIXED reference locale
+  // (Locale.US — not the caller's ambient/server locale, so this is
+  // deterministic regardless of where the node runs), e.g. "$" for USD,
+  // "€" for EUR. This is a fixed reference rendering, not a true
+  // locale-aware symbol; for that, use locale-tools' GetCurrencyInfo.
+  string symbol = 4;
+  MoneyError error = 5;
+}
+
+// The result of Allocate: the exact parts, in the same order as the input
+// ratios. sum(parts.amount) always equals the original amount exactly — no
+// rounding loss, no leftover unit.
+message AllocateResult {
+  repeated MoneyAmount parts = 1;
+  MoneyError error = 2;
+}
+
+// The result of comparing two same-currency amounts a and b.
+message CompareResult {
+  // -1 if a < b, 0 if a == b, +1 if a > b. Meaningless if error is set.
+  int32 comparison = 1;
+  bool equal = 2;
+  bool greater = 3;
+  bool less = 4;
+  MoneyError error = 5;
+}
+
+// The sign classification of one amount.
+message SignResult {
+  bool is_zero = 1;
+  bool is_positive = 2;
+  bool is_negative = 3;
+  // -1, 0, or +1 — same convention as CompareResult.comparison against zero.
+  int32 signum = 4;
+  MoneyError error = 5;
+}
+
+// Input to Add: a + b. a and b must share the same currency.
+message AddInput {
+  MoneyAmount a = 1;
+  MoneyAmount b = 2;
+}
+
+// Input to Subtract: a - b. a and b must share the same currency.
+message SubtractInput {
+  MoneyAmount a = 1;
+  MoneyAmount b = 2;
+}
+
+// Input to Multiply: amount * factor, where factor is an exact decimal
+// string (a plain scalar, not itself a currency amount).
+message MultiplyInput {
+  MoneyAmount amount = 1;
+  // Exact decimal string scalar, e.g. "3", "1.5", "-2.25".
+  string factor = 2;
+}
+
+// Input to Divide: amount / divisor, rounded to `scale` decimal places using
+// `rounding_mode` (division can be non-terminating, e.g. 10/3, so a target
+// scale and rounding mode are required to land on an exact result).
+message DivideInput {
+  MoneyAmount amount = 1;
+  // Exact decimal string scalar divisor, e.g. "3", "1.5". Must not be zero.
+  string divisor = 2;
+  // Target number of decimal places for the result. Unset uses the amount's
+  // currency's own default fraction digits (explicit presence, not a
+  // sentinel value, so 0 can be requested unambiguously).
+  optional int32 scale = 3;
+  // One of: HALF_UP, HALF_DOWN, HALF_EVEN, UP, DOWN, CEILING, FLOOR. Empty
+  // defaults to HALF_UP.
+  string rounding_mode = 4;
+}
+
+// Input to Sum: total a list of amounts. All must share the same currency;
+// an empty list is an INVALID_ARGUMENT error (there is no currency to report
+// a zero total in).
+message SumInput {
+  repeated MoneyAmount amounts = 1;
+}
+
+// Input to Allocate: split `amount` into len(ratios) parts proportional to
+// `ratios`, with the exact remainder (from integer-minor-unit division)
+// distributed deterministically one minor unit at a time — largest
+// fractional remainder first, ties broken by ascending index — so
+// sum(parts) always equals `amount` exactly. E.g. 0.05 USD split [1,1,1] ->
+// [0.02, 0.02, 0.01] USD.
+message AllocateInput {
+  MoneyAmount amount = 1;
+  // Positive integer ratio weights, e.g. [1,1,1] for an even 3-way split, or
+  // [2,1] for a 2:1 split. Must be non-empty; every entry must be > 0.
+  repeated int64 ratios = 2;
+}
+
+// Input to Round: round `amount` to `scale` decimal places using
+// `rounding_mode`.
+message RoundInput {
+  MoneyAmount amount = 1;
+  // Target number of decimal places. Unset uses the amount's currency's own
+  // default fraction digits (e.g. 2 for USD, 0 for JPY) — explicit
+  // presence, not a sentinel value, so 0 can be requested unambiguously.
+  optional int32 scale = 2;
+  // One of: HALF_UP, HALF_DOWN, HALF_EVEN, UP, DOWN, CEILING, FLOOR. Empty
+  // defaults to HALF_UP.
+  string rounding_mode = 3;
+}
+
+// Input to Compare: order two same-currency amounts.
+message CompareInput {
+  MoneyAmount a = 1;
+  MoneyAmount b = 2;
+}
+
+// Input to Sign: classify one amount's sign.
+message SignInput {
+  MoneyAmount amount = 1;
+}
+
+// Input to Convert: apply a CALLER-SUPPLIED exchange rate to move an amount
+// into another currency. This package never fetches a live rate — the rate
+// is always an explicit input.
+message ConvertInput {
+  MoneyAmount amount = 1;
+  // ISO 4217 code to convert into, e.g. "EUR".
+  string target_currency = 2;
+  // Exact decimal string exchange rate: result = amount * rate, expressed as
+  // 1 unit of amount.currency = `rate` units of target_currency. Must be
+  // positive.
+  string rate = 3;
+  // Target number of decimal places for the converted result. Unset uses
+  // target_currency's own default fraction digits — explicit presence, not
+  // a sentinel value, so 0 can be requested unambiguously.
+  optional int32 scale = 4;
+  // One of: HALF_UP, HALF_DOWN, HALF_EVEN, UP, DOWN, CEILING, FLOOR. Empty
+  // defaults to HALF_UP.
+  string rounding_mode = 5;
+}
+
+// Input to Negate: flip the sign of `amount`.
+message NegateInput {
+  MoneyAmount amount = 1;
+}
+
+// Input to Abs: the absolute value of `amount`.
+message AbsInput {
+  MoneyAmount amount = 1;
+}
+
+// Input to ApplyPercentage: amount * (percent / 100), e.g. percent="10" on
+// 200.00 USD -> 20.00 USD.
+message ApplyPercentageInput {
+  MoneyAmount amount = 1;
+  // Exact decimal string percentage, e.g. "10", "2.5", "-15".
+  string percent = 2;
+}
+
+// Input to GetCurrencyMetadata: look up structural metadata for one ISO 4217
+// currency code.
+message GetCurrencyMetadataInput {
+  // ISO 4217 currency code, e.g. "USD". Case-insensitive.
+  string currency = 1;
+}
