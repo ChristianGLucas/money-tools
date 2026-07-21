@@ -32,6 +32,14 @@ public class GetCurrencyMetadataTest {
         assertEquals(0, result.getDefaultFractionDigits());
         assertEquals(392, result.getNumericCode());
         assertEquals("¥", result.getSymbol());
+        // Regression guard (caught by review): default_fraction_digits is a
+        // proto3 `optional int32` specifically so a genuine 0 (JPY) is still
+        // PRESENT on the wire — a plain int32 field silently vanishes from
+        // JSON at its zero default, which would drop this exact value for
+        // this exact currency. hasX() only exists because the field is
+        // `optional`; reverting that in messages.proto breaks this build.
+        assertTrue(result.hasDefaultFractionDigits());
+        assertTrue(result.hasNumericCode());
     }
 
     @Test

@@ -79,7 +79,7 @@ nodes:
     - name: ApplyPercentage
       input: ApplyPercentageInput
       output: MoneyAmount
-      description: Apply a percentage to an amount, e.g. percent "10" on 200.00 USD -> 20.00 USD. Exact — dividing by 100 is always an exact terminating decimal shift, never a rounded division.
+      description: Apply a percentage to an amount, e.g. percent "10" on 200.00 USD -> "20.0000" USD. Exact — dividing by 100 is always an exact terminating decimal shift, never a rounded division — but the scale GROWS by +2 (it is not normalized back to the input's scale); pair with Round if you need a specific target scale.
     - name: GetCurrencyMetadata
       input: GetCurrencyMetadataInput
       output: CurrencyMetadata

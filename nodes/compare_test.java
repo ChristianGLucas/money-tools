@@ -44,6 +44,12 @@ public class CompareTest {
         assertTrue(result.getEqual());
         assertFalse(result.getGreater());
         assertFalse(result.getLess());
+        // Regression guard (caught by review): comparison is a proto3
+        // `optional int32` specifically so the equal (0) result is still
+        // PRESENT on the wire — a plain int32 field silently vanishes from
+        // JSON at its zero default. hasComparison() only exists because the
+        // field is `optional`; reverting that in messages.proto breaks this build.
+        assertTrue(result.hasComparison());
     }
 
     @Test

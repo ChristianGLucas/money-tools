@@ -70,11 +70,14 @@ message CurrencyMetadata {
   string currency = 1;
   // The number of minor-unit decimal places conventionally used by this
   // currency, e.g. 2 for USD, 0 for JPY, 3 for BHD. This is the scale Round
-  // and Divide use by default when no explicit scale is given.
-  int32 default_fraction_digits = 2;
+  // and Divide use by default when no explicit scale is given. `optional`
+  // (explicit presence) so a genuine 0 (JPY) round-trips over JSON instead
+  // of being dropped as a proto3 default value — always set on success.
+  optional int32 default_fraction_digits = 2;
   // ISO 4217 numeric code, e.g. 840 for USD, 0 if the currency has none
-  // (some non-ISO / historical codes).
-  int32 numeric_code = 3;
+  // (some non-ISO / historical codes). `optional` for the same reason as
+  // default_fraction_digits — always set on success.
+  optional int32 numeric_code = 3;
   // The JDK's currency symbol resolved under a FIXED reference locale
   // (Locale.US — not the caller's ambient/server locale, so this is
   // deterministic regardless of where the node runs), e.g. "$" for USD,
@@ -95,7 +98,9 @@ message AllocateResult {
 // The result of comparing two same-currency amounts a and b.
 message CompareResult {
   // -1 if a < b, 0 if a == b, +1 if a > b. Meaningless if error is set.
-  int32 comparison = 1;
+  // `optional` (explicit presence) so an equal (0) result round-trips over
+  // JSON instead of being dropped as a proto3 default value.
+  optional int32 comparison = 1;
   bool equal = 2;
   bool greater = 3;
   bool less = 4;
@@ -108,7 +113,9 @@ message SignResult {
   bool is_positive = 2;
   bool is_negative = 3;
   // -1, 0, or +1 — same convention as CompareResult.comparison against zero.
-  int32 signum = 4;
+  // `optional` (explicit presence) so a zero result round-trips over JSON
+  // instead of being dropped as a proto3 default value.
+  optional int32 signum = 4;
   MoneyError error = 5;
 }
 
@@ -223,7 +230,10 @@ message AbsInput {
 }
 
 // Input to ApplyPercentage: amount * (percent / 100), e.g. percent="10" on
-// 200.00 USD -> 20.00 USD.
+// 200.00 USD -> "20.0000" USD (scale GROWS by +2, from amount.scale to
+// amount.scale + 2 — the exact, unrounded product; it does not normalize
+// back to the input's own scale). Pair with Round if you need the result at
+// a specific scale, e.g. the currency's own default fraction digits.
 message ApplyPercentageInput {
   MoneyAmount amount = 1;
   // Exact decimal string percentage, e.g. "10", "2.5", "-15".

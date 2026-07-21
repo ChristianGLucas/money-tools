@@ -40,5 +40,11 @@ public class SignTest {
         assertFalse(result.getIsPositive());
         assertFalse(result.getIsNegative());
         assertEquals(0, result.getSignum());
+        // Regression guard (caught by review): signum is a proto3
+        // `optional int32` specifically so the zero result is still PRESENT
+        // on the wire — a plain int32 field silently vanishes from JSON at
+        // its zero default. hasSignum() only exists because the field is
+        // `optional`; reverting that in messages.proto breaks this build.
+        assertTrue(result.hasSignum());
     }
 }
