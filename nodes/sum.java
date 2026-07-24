@@ -20,9 +20,6 @@ public class Sum {
             if (input.getAmountsCount() == 0) {
                 throw MoneyUtil.invalid("amounts must not be empty");
             }
-            if (input.getAmountsCount() > MoneyUtil.MAX_LIST_SIZE) {
-                throw MoneyUtil.invalid("amounts exceeds the maximum of " + MoneyUtil.MAX_LIST_SIZE + " entries");
-            }
             MoneyUtil.Parsed first = MoneyUtil.parse(input.getAmounts(0), "amounts[0]");
             BigDecimal total = first.amount;
             for (int i = 1; i < input.getAmountsCount(); i++) {

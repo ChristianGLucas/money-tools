@@ -40,10 +40,6 @@ import java.util.regex.Pattern;
 final class MoneyUtil {
     private MoneyUtil() {}
 
-    /** A caller-input amount string may not exceed this many characters. */
-    static final int MAX_AMOUNT_LEN = 200;
-    /** A caller-supplied repeated field (ratios, amounts) may not exceed this many entries. */
-    static final int MAX_LIST_SIZE = 10_000;
     /** An explicit target scale may not exceed this many decimal places. */
     static final int MAX_SCALE = 100;
 
@@ -97,9 +93,6 @@ final class MoneyUtil {
             throw invalid(fieldName + " is required");
         }
         String trimmed = raw.trim();
-        if (trimmed.length() > MAX_AMOUNT_LEN) {
-            throw invalid(fieldName + " exceeds the maximum length of " + MAX_AMOUNT_LEN + " characters");
-        }
         if (!PLAIN_DECIMAL.matcher(trimmed).matches()) {
             throw invalid(fieldName + " must be a plain decimal string (no scientific notation, "
                 + "no leading '+', no separators), got: " + raw);
@@ -197,9 +190,6 @@ final class MoneyUtil {
     static BigInteger[] allocateUnscaled(BigInteger total, long[] ratios) {
         if (ratios == null || ratios.length == 0) {
             throw invalid("ratios must not be empty");
-        }
-        if (ratios.length > MAX_LIST_SIZE) {
-            throw invalid("ratios exceeds the maximum of " + MAX_LIST_SIZE + " entries");
         }
         if (total.signum() < 0) {
             throw invalid("amount must not be negative — Allocate does not support negative "
