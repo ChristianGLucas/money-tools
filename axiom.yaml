@@ -1,5 +1,5 @@
 name: christiangeorgelucas/money-tools
-version: 0.1.1
+version: 0.1.2
 language: java
 description: >-
   Composable Axiom exact monetary-arithmetic nodes — add/subtract/multiply/
